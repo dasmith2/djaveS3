@@ -1,0 +1,32 @@
+{% load photo_extras %}
+<html>
+  <head>
+
+    {% include "util/libraries.html" %}
+    {% include "photo_upload_js_and_style.html" %}
+
+<script>
+$(function() {
+  var to = $('#photo');
+  var success = function(file_name) {
+    $('#final_file_name').text(file_name);
+    $('#success').show();
+    var src = PUT_YOUR_PUBLIC_PHOTO_URL_ROOT_HERE + file_name;
+    overlay_upload_with_image(to, src);
+  };
+  var existing_img_url = '';
+  append_public_file_upload(to, existing_img_url, success);
+});
+</script>
+<style>
+#photo img { width: 500px; }
+</style>
+  </head>
+  <body>
+    <div id="photo">
+    </div>
+    <div id="success" class="start_hidden">
+      <p>You just uploaded <span id="final_file_name"></span>
+    </div>
+  </body>
+</html>
