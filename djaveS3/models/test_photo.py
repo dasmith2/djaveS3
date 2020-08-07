@@ -7,11 +7,13 @@ from djaveS3.bucket_config import BucketConfig
 SENSITIVE_BUCKET_NAME = 'my_sensitive_bucket'
 SENSITIVE_BUCKET_CONFIG = BucketConfig(
     SENSITIVE_BUCKET_NAME, 'test_sensitive_access_key_id',
-    'test_sensitive_secret_access_key', is_public=False)
+    'test_sensitive_secret_access_key', is_public=False,
+    max_width_or_height=800)
 PUBLIC_BUCKET_NAME = 'my_public_bucket'
 PUBLIC_BUCKET_CONFIG = BucketConfig(
     PUBLIC_BUCKET_NAME, 'test_public_access_key_id',
-    'test_public_secret_access_key', is_public=True)
+    'test_public_secret_access_key', is_public=True,
+    max_width_or_height=800)
 
 
 class TestPhoto(Photo):

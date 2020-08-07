@@ -16,7 +16,7 @@ class SignedFile(models.Model):
   file_name = models.CharField(
       max_length=200, db_index=True, unique=True, null=False, blank=False)
   bucket_name = models.CharField(max_length=200)
-  created_at = models.DateTimeField(auto_now_add=True)
+  created = models.DateTimeField(auto_now_add=True)
 
   def delete_file(self, bucket=None):
     bucket = bucket or Bucket(get_bucket_config(self.bucket_name))

@@ -31,8 +31,8 @@ def set_photo_stuff(photo, **kwargs):
 def set_file_stuff(file, **kwargs):
   file.file_name = kwargs.get('file_name', random_string())
   file.keep_until = kwargs.get('keep_until', None)
-  if 'created_at' in kwargs:
-    File.objects.filter(pk=file.pk).update(created_at=kwargs['created_at'])
+  if 'created' in kwargs:
+    File.objects.filter(pk=file.pk).update(created=kwargs['created'])
     file.refresh_from_db()
   file.save()
   return file
@@ -42,9 +42,9 @@ def get_test_signed_file(**kwargs):
   signed_file = SignedFile.objects.create(
       file_name=kwargs.get('file_name', None),
       bucket_name=kwargs.get('bucket_name', False))
-  if 'created_at' in kwargs:
+  if 'created' in kwargs:
     SignedFile.objects.filter(pk=signed_file.pk).update(
-        created_at=kwargs['created_at'])
+        created=kwargs['created'])
     signed_file.refresh_from_db()
   return signed_file
 
@@ -71,22 +71,22 @@ class CleanUpNeverUsedTests(TestCase):
     # Used
     get_test_signed_file(
         file_name='verbs.jpg', bucket_name=PUBLIC_BUCKET_NAME,
-        created_at=str_to_tz_dt('2018-12-24 12:00'))
+        created=str_to_tz_dt('2018-12-24 12:00'))
     get_test_photo(file_name='verbs.jpg')
     # Created too recently
     recent = get_test_signed_file(
         file_name='participles.jpg', bucket_name=PUBLIC_BUCKET_NAME,
-        created_at=str_to_tz_dt('2018-12-24 12:01'))
+        created=str_to_tz_dt('2018-12-24 12:01'))
     # Coincidentally, there's a sensitive file with the same name. But that
     # means it's in a totally different bucket, so this should get cleaned up.
     get_test_signed_file(
         file_name='nouns.jpg', bucket_name=SENSITIVE_BUCKET_NAME,
-        created_at=str_to_tz_dt('2018-12-24 12:00'))
+        created=str_to_tz_dt('2018-12-24 12:00'))
     get_test_photo(file_name='nouns.jpg')
     # Standard abandoned upload. Clean it up.
     get_test_signed_file(
         file_name='adjectives.jpg', bucket_name=SENSITIVE_BUCKET_CONFIG,
-        created_at=str_to_tz_dt('2018-12-24 12:00'))
+        created=str_to_tz_dt('2018-12-24 12:00'))
 
     bucket = Mock(spec=Bucket)
     clean_up_never_used(nnow=str_to_tz_dt('2018-12-25 12:00'), bucket=bucket)

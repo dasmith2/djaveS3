@@ -16,10 +16,11 @@ def resize_all(nnow=None, **kwargs):
   """ If all we ever get is a SignedFile, then the image will never be
   resized. """
   nnow = nnow or now()
-  for photo in Photo.objects.filter(
+  photos = Photo.objects.filter(
       ~Q(file_name=''),  # Sometimes a single empty file name is in the db
       resized_at__isnull=True,
-      created_at__gte=nnow - timedelta(days=7)):
+      created__gte=nnow - timedelta(days=7))
+  for photo in photos:
     photo.as_child_class().resize(**kwargs)
 
 

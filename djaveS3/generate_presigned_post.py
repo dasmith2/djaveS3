@@ -9,7 +9,7 @@ def generate_presigned_post(
   bucket = Bucket(get_bucket_config(bucket_config))
   boto_client = boto_client or bucket.boto_client
   SignedFile.objects.get_or_create(
-      file_name=file_name, bucket_name=bucket_config.name)
+      file_name=file_name, bucket_name=bucket.name())
   fields = {'Content-Type': file_type}
   conditions = [{'Content-Type': file_type}]
   """
@@ -22,7 +22,7 @@ def generate_presigned_post(
   conditions.insert(0, {'acl': 'public-read'})
   """
   return boto_client.generate_presigned_post(
-      Bucket=bucket_config.name,
+      Bucket=bucket.name(),
       Key=file_name,
       Fields=fields,
       Conditions=conditions,

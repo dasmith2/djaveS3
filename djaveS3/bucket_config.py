@@ -13,7 +13,7 @@ visible. Your django.conf.settings should have something like this in it:
 
 IAM_ACCESS_KEY_ID = 'whatever'
 IAM_SECRET_ACCESS_KEY = 'whatever else'
-BUCKETS = [
+S3_BUCKETS = [
     BucketConfig(
         'my_public_bucket', IAM_ACCESS_KEY_ID,
         IAM_SECRET_ACCESS_KEY, is_public=True),
@@ -25,7 +25,17 @@ This configuration is basically so we know how to view an image given a bucket
 name and a file name.
 """
 from collections import namedtuple
+import json
+
+from django.utils.safestring import mark_safe
 
 
-BucketConfig = namedtuple(
-    'BucketConfig', 'name access_key_id secret_access_key is_public')
+FIELDS = 'name access_key_id secret_access_key is_public max_width_or_height'
+
+
+class BucketConfig(namedtuple('BucketConfig', FIELDS)):
+  def as_javascript(self):
+    return mark_safe(json.dumps({
+        'name': self.name,
+        'is_public': self.is_public,
+        'max_width_or_height': self.max_width_or_height}))

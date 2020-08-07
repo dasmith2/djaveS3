@@ -32,23 +32,48 @@
 </style>
 
 <script id="photo_upload_functions">
-function append_sensitive_file_upload(to, success) {
-  var sensitive = true;
-  return append_photo_upload(to, sensitive, success);
+function append_photo_upload(
+    to, bucket, success, existing_img_url_or_elt) {
+  /* Append the necessary HTML to the `to` html element in order to upload a
+   * photo, and when that all works, call success(new_file_name). The server
+   * picks the file name because every file name has to be unique. If you
+   * specify existing_img_url_or_elt, show that photo instead of the upload
+   * button.
+   *
+   * bucket should be, like, {{ bucket.as_javascript }} which turns into
+   * something like {'name': 'my-bucket-name', 'is_public': true,
+   * 'max_width_or_height': 800} */
+  var template = Handlebars.compile($('#photo_upload_template').html());
+  var element_dom = template({});
+  var $element = $(element_dom).appendTo(to);
+
+  setup_file_upload_hover($element);
+  set_up_file_upload($element, bucket, success);
+  attach_directions($element);
+  if (existing_img_url_or_elt) {
+    overlay_upload(to, existing_img_url_or_elt);
+  }
+
+  return $element;
 }
 
-function append_public_file_upload(to, existing_img_url_or_elt, success) {
-  var feedback = get_feedback_elt_after(to);
-  var sensitive = false;
-  var to_return = append_photo_upload(to, sensitive, success);
-  if (existing_img_url_or_elt) {
-    if (typeof existing_img_url_or_elt == 'string') {
-      overlay_upload_with_image(to, existing_img_url_or_elt);
-    } else {
-      overlay_upload_with_elt(to, existing_img_url_or_elt);
-    }
+function attach_directions($element) {
+  if (window.is_mobile) {
+    var upload_message_template_id = 'mobile_file_upload_message_template';
+  } else {
+    var upload_message_template_id = 'desktop_file_upload_message_template';
   }
-  return to_return;
+  var msg_tmpl = Handlebars.compile(
+      $('#' + upload_message_template_id).html());
+  $element.find('.box_text').prepend($(msg_tmpl()));
+}
+
+function overlay_upload(wrapper, img_url_or_elt) {
+  if (typeof img_url_or_elt == 'string') {
+    overlay_upload_with_image(to, img_url_or_elt);
+  } else {
+    overlay_upload_with_elt(to, img_url_or_elt);
+  }
 }
 
 function overlay_upload_with_image(wrapper, existing_img_url) {
@@ -64,36 +89,15 @@ function overlay_upload_with_elt(wrapper, elt) {
   });
 }
 
-function append_photo_upload(to, sensitive, success) {
-  /* Append the necessary HTML to the `to` html element in order to upload a
-   * sensitive or not photo, and when that all works, call
-   * success(new_file_name). The server picks the file name because every file
-   * name has to be unique. */
-  var template = Handlebars.compile($('#photo_upload_template').html());
-  var element = template({});
-  var $element = $(element).appendTo(to);
-  setup_file_upload_hover($element);
-  set_up_file_upload(to, $element, sensitive, success);
-  if (window.is_mobile) {
-    var upload_message_template_id = 'mobile_file_upload_message_template';
-  } else {
-    var upload_message_template_id = 'desktop_file_upload_message_template';
-  }
-  var msg_tmpl = Handlebars.compile(
-      $('#' + upload_message_template_id).html());
-  $element.find('.box_text').prepend($(msg_tmpl()));
-  return $element;
-}
-
 function setup_file_upload_hover($element) {
-  $element.hover(function() {
+  $element.find('.file_upload_box').hover(function() {
     $(this).addClass('hover');
   }, function() {
     $(this).removeClass('hover');
   });
 }
 
-function set_up_file_upload(to, $element, sensitive, success) {
+function set_up_file_upload($element, bucket, success) {
   $element.find('.file_input').change(function() {
     var $file_input = $(this);
     var file = file_from_input($file_input);
@@ -101,17 +105,17 @@ function set_up_file_upload(to, $element, sensitive, success) {
     if (typeof file == 'undefined') {
       return;
     }
-    var format_wrapper = to.find('.format_wrapper');
+    var format_wrapper = $element.find('.format_wrapper');
     var file_format = format_wrapper.find('.file_format');
-    var required_wrapper = to.find('.required_wrapper').hide();
-    var uploading = to.find('.uploading');
-    var buttons = to.find('button');
+    var required_wrapper = $element.find('.required_wrapper').hide();
+    var uploading = $element.find('.uploading');
+    var buttons = $element.find('button');
     {% autoescape off %}
     var VALID_IMAGE_TYPES = {% valid_image_types %};
     {% endautoescape %}
     if (VALID_IMAGE_TYPES.indexOf(file.type) >= 0) {
       format_wrapper.hide();
-      if (to.find('.file_upload_box').is(':hidden')) {
+      if ($element.find('.file_upload_box').is(':hidden')) {
         if (buttons.length) {
           buttons.each(function() {
             $(this).attr('data-original-text', $(this).text()).attr(
@@ -121,7 +125,7 @@ function set_up_file_upload(to, $element, sensitive, success) {
           uploading.show();
         }
       }
-      sign_and_upload($file_input, sensitive, function(file_name) {
+      sign_and_upload($file_input, bucket, function(file_name) {
         success(file_name);
         uploading.hide();
       });
@@ -142,15 +146,10 @@ function file_from_input($file_input) {
   return $file_input[0].files[0];
 }
 
-function sign_and_upload($file_input, sensitive, success) {
+function sign_and_upload($file_input, bucket, success) {
   var xhr = new XMLHttpRequest();
   var file = file_from_input($file_input);
-  var url_root;
-  if (sensitive) {
-    url_root = '/sign_upload_sensitive/';
-  } else {
-    url_root = '/sign_upload_public/';
-  }
+  var url_root = '/sign_upload/' + bucket.name + '/';
   var url = (
       url_root + '?file_type=' + file.type + '&do_not_cache=' + Math.random());
   xhr.open('GET', url);
@@ -172,7 +171,8 @@ function sign_and_upload($file_input, sensitive, success) {
         };
         status_div.text('Uploading...');
         upload_and_callback(
-            file, response.presigned_post, on_successful_upload, on_failure);
+            file, bucket, response.presigned_post,
+            on_successful_upload, on_failure);
       } else {
         status_div.text(
             'Whoops, our software seems to be broken. '
@@ -183,28 +183,21 @@ function sign_and_upload($file_input, sensitive, success) {
   xhr.send();
 }
 
-window.upload_post_response = null;
-
 function upload_and_callback(
-    file, presigned_post, on_successful_upload, on_failure) {
+    file, bucket, presigned_post, on_successful_upload, on_failure) {
   var xhr = new XMLHttpRequest();
-  // Both the prod and dev buckets really fought me to get set up. For a
-  // while I was getting 307 responses on the dev bucket, pointing here
-  // instead, and this approach worked in that moment:
-  // xhr.open(
-  //     'POST',
-  //     'https://dev-stayd-id-verification.s3.us-east-2.amazonaws.com');
-  // Right now, NO status is coming back because who knows why.
-  // presigned_post.url is dev-stayd-id-verification.s3.amazonaws.com
-  // If this problem persists, add the region to the url in
-  // id_verify/views.py _get_presigned_post
+  // If you just set up your buckets and you're getting 307 responses, that's
+  // Amazon taking a moment to get their act together. In the meantime, if you
+  // really really need to test this out, you can try hacking it to use a more
+  // qualified url like xhr.open('POST',
+  // 'https://my-bucket-name.s3.us-east-2.amazonaws.com');
   xhr.open('POST', presigned_post.url);
 
   var postData = new FormData();
   for (key in presigned_post.fields) {
     postData.append(key, presigned_post.fields[key]);
   }
-  resize(file, function(resized_file) {
+  resize(file, bucket.max_width_or_height, function(resized_file) {
     postData.append('file', resized_file);
 
     xhr.onreadystatechange = function() {
@@ -220,7 +213,7 @@ function upload_and_callback(
   });
 }
 
-function resize(file, success) {
+function resize(file, max_width_or_height, success) {
   // Thank you
   // https://medium.com/hootsuite-engineering/mobile-photo-uploads-with-html5-f7ea174ef128
   var reader = new FileReader();
@@ -228,9 +221,6 @@ function resize(file, success) {
   reader.onloadend = function () {
     var data_url = reader.result;
     var file_type = file.type;
-
-    // This is basically repeated in photos.models def max_width_or_height
-    var max_width_or_height = 800;
 
     var image = new Image();
     image.src = data_url;
@@ -312,45 +302,47 @@ function data_uri_to_blob(data_uri, file_type) {
   <p><b>Choose photo</b> or <b>drag here</b></p>
 </script>
 <script id="photo_upload_template" type="text/x-handlebars-template">
-  <div class="file_upload_box">
-    <div class="box">
-      <input name="file" style="display: block;" type="file" class="file_input"
-          tabindex="0" accept="image/*">
-      <div class="photo_box_content_wrapper">
-        <div class="box_content">
-          <div class="box-image">
-            <svg class="icon-cloud" width="132px" height="85px" viewBox="0 0 132 85" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:sketch="http://www.bohemiancoding.com/sketch/ns">
-              <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
-                <g sketch:type="MSArtboardGroup" fill="#fff8a8">
-                  <path d="M79,85 L108,85 L108,84.9566146 C121.385069,84.1801879 132,73.0797189 132,59.5 C132,46.906961 122.871557,36.445984 110.870729,34.373127 C110.956288,33.426871 111,32.4685402 111,31.5 C111,14.1030304 96.8969696,0 79.5,0 C65.9387999,0 54.3791415,8.56961829 49.9409394,20.5889401 L49.9409394,20.5889401 C47.0317445,16.5954404 42.3189711,14 37,14 C28.163444,14 21,21.163444 21,30 C21,31.4892152 21.2034561,32.9309107 21.5840885,34.2988067 C9.35984257,36.1828033 0,46.7483475 0,59.5 C0,73.4162144 11.1475089,84.7287886 25,85 L59,85 L59,66 L43,66 L69,32 L95,66 L79,66 L79,85 Z" sketch:type="MSShapeGroup"></path>
+  <div class="file_upload_wrapper">
+    <div class="file_upload_box">
+      <div class="box">
+        <input name="file" style="display: block;" type="file" class="file_input"
+            tabindex="0" accept="image/*">
+        <div class="photo_box_content_wrapper">
+          <div class="box_content">
+            <div class="box-image">
+              <svg class="icon-cloud" width="132px" height="85px" viewBox="0 0 132 85" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:sketch="http://www.bohemiancoding.com/sketch/ns">
+                <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketch:type="MSPage">
+                  <g sketch:type="MSArtboardGroup" fill="#fff8a8">
+                    <path d="M79,85 L108,85 L108,84.9566146 C121.385069,84.1801879 132,73.0797189 132,59.5 C132,46.906961 122.871557,36.445984 110.870729,34.373127 C110.956288,33.426871 111,32.4685402 111,31.5 C111,14.1030304 96.8969696,0 79.5,0 C65.9387999,0 54.3791415,8.56961829 49.9409394,20.5889401 L49.9409394,20.5889401 C47.0317445,16.5954404 42.3189711,14 37,14 C28.163444,14 21,21.163444 21,30 C21,31.4892152 21.2034561,32.9309107 21.5840885,34.2988067 C9.35984257,36.1828033 0,46.7483475 0,59.5 C0,73.4162144 11.1475089,84.7287886 25,85 L59,85 L59,66 L43,66 L69,32 L95,66 L79,66 L79,85 Z" sketch:type="MSShapeGroup"></path>
+                  </g>
                 </g>
-              </g>
-            </svg>
-          </div>
-          <div class="box_text">
-            <p>Size limit: 10 MB</p>
+              </svg>
+            </div>
+            <div class="box_text">
+              <p>Size limit: 10 MB</p>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="aux">
-        <div class="bg"></div>
-        <div class="bd"></div>
+        <div class="aux">
+          <div class="bg"></div>
+          <div class="bd"></div>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="start_hidden uploading">
-    Uploading...
-  </div>
-  <div class="required_wrapper">
-    <span>Please upload a photo</span>
-    <div class="error_triangle"></div>
-  </div>
-  <div class="format_wrapper">
-    <span>
-      I'm afraid we don't support <span class='file_format'>PDF</span>!
-      .jpg files are best, or simply take a photo with your phone.
-    </span>
-    <div class="error_triangle"></div>
+    <div class="start-hidden uploading">
+      Uploading...
+    </div>
+    <div class="start-hidden required_wrapper">
+      <span>Please upload a photo</span>
+      <div class="error_triangle"></div>
+    </div>
+    <div class="start-hidden format_wrapper">
+      <span>
+        I'm afraid we don't support <span class='file_format'>PDF</span>!
+        .jpg files are best, or simply take a photo with your phone.
+      </span>
+      <div class="error_triangle"></div>
+    </div>
   </div>
 </script>
 {% endverbatim %}

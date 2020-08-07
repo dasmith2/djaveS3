@@ -5,11 +5,11 @@ from django.shortcuts import render
 from djaveS3.file_types import (
     suffix_from_file_type, content_type_from_file_name)
 from djaveS3.generate_presigned_post import generate_presigned_post
-from djaveS3.models.bucket import get_bucket_config, Bucket
+from djaveS3.models.bucket import Bucket
 from djaveS3.random_string import random_string
 
 
-def sensitive_file_response(bucket_config, file_name):
+def sensitive_file_response(file):
   """ This function is helpful to construct your own views that will return the
   actual bytes for a sensitive image. You need to pass the literal bytes for
   sensitive photos through your server in order to put security checks in front
@@ -31,16 +31,16 @@ def sensitive_file_response(bucket_config, file_name):
 
   <img src="{{ steve_photo_url }}">
   """
-  bucket_config = get_bucket_config(bucket_config)
-  if bucket_config.public:
+  bucket_config = file.bucket_config()
+  if bucket_config.is_public:
     raise Exception((
         'S3 bucket {} is public, so performance-wise, it is best to just '
         'leave this server out of it entirely and use public_photo_url '
         'in djaveS3.S3 instead.').format(bucket_config.name))
-  img_bytes = Bucket(bucket_config).file_bytes(file_name)
+  img_bytes = Bucket(bucket_config).file_bytes(file.file_name)
   if img_bytes:
     return HttpResponse(
-        img_bytes, content_type=content_type_from_file_name(file_name))
+        img_bytes, content_type=content_type_from_file_name(file.file_name))
   return Http404()
 
 

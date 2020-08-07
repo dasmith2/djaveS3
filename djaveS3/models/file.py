@@ -30,7 +30,9 @@ from abc import abstractmethod
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from djaveClass import BaseKnowsChild
+from djaveClassMagic import BaseKnowsChild
+from djaveS3.models.bucket import Bucket
+from djaveS3.public_file_url import public_file_url
 
 
 class File(BaseKnowsChild):
@@ -41,7 +43,7 @@ class File(BaseKnowsChild):
   # it.
   file_name = models.CharField(
       max_length=200, db_index=True, unique=True, null=False, blank=False)
-  created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+  created = models.DateTimeField(auto_now_add=True, db_index=True)
   keep_until = models.DateTimeField(db_index=True, null=True, help_text=(
       'Once keep_until is in the past, if I can '
       'explain_why_can_delete, I will chuck this file.'))
@@ -84,8 +86,11 @@ class File(BaseKnowsChild):
       raise ValidationError('file_name must be a non empty string')
     return super().clean()
 
+  def public_file_url(self):
+    return public_file_url(self.bucket_config(), self.file_name)
+
   def _bucket(self):
-    return self.as_child_class().bucket()
+    return Bucket(self.as_child_class().bucket_config())
 
   def __repr__(self):
     return '<{} {}: {}>'.format(

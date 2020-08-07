@@ -3,9 +3,10 @@ from datetime import timedelta
 from django.conf import settings
 from django.db.models import Q
 from djaveDT import now
-from djaveS3.models.bucket import public_file_url, Bucket
+from djaveS3.models.bucket import Bucket
 from djaveS3.models.file import File
 from djaveS3.models.signed_file import SignedFile
+from djaveS3.public_file_url import public_file_url
 from djaveThread.background_command import background_command
 
 
@@ -27,7 +28,7 @@ def clean_up_never_used(nnow=None, bucket=None):
   # file they just uploaded. So give it a day for the reason for the upload to
   # show up, and if it doesn't, chuck the upload.
   for signed in SignedFile.objects.filter(
-      created_at__lte=nnow - timedelta(days=1)).order_by('pk'):
+      created__lte=nnow - timedelta(days=1)).order_by('pk'):
     if not signed_file_is_used(signed):
       signed.delete_file(bucket=bucket)
     signed.delete()
